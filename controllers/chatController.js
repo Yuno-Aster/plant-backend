@@ -2,7 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const ChatSession = require('../models/ChatSession');
 
-// ၁။ Chat လုပ်ခြင်း (History ပါ သိမ်းမည်)
+// ၁။ Chat လုပ်ခြင်း (History ပါ သိမ်းမည် - စပါးနှင့် စိုက်ပျိုးရေးဆိုင်ရာ သီးသန့်ကန့်သတ်ထားသည်)
 exports.handleChat = async (req, res) => {
     try {
         const { message, chatId, userId } = req.body;
@@ -16,10 +16,16 @@ exports.handleChat = async (req, res) => {
             contentParts.push({ "type": "image_url", "image_url": { "url": `data:image/jpeg;base64,${base64Image}` } });
         }
 
+        // 📌 စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ သီးသန့်ဖြစ်စေရန် သတ်မှတ်ချက်
+        const systemPrompt = `You are an expert assistant strictly dedicated to rice plants, paddy farming, and agricultural practices in Myanmar. 
+        - You must ONLY answer questions related to rice, paddy cultivation, diseases, fertilizers, and agricultural tips.
+        - If the user asks about anything unrelated to rice or agriculture (e.g., coding, general knowledge, entertainment, politics), politely refuse in Burmese by saying: "ကျေးဇူးပြု၍ စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ မေးခွန်းများကိုသာ မေးမြန်းပေးပါ။"
+        - ALWAYS answer in Burmese language.`;
+
         const response = await axios.post(process.env.OPENROUTER_URL, {
             "model": "google/gemini-2.5-flash-image",
             "messages": [
-                { "role": "system", "content": "You are a plant expert. ALWAYS answer in Burmese language." },
+                { "role": "system", "content": systemPrompt },
                 { "role": "user", "content": contentParts }
             ],
             "max_tokens": 500
@@ -60,7 +66,7 @@ exports.getHistory = async (req, res) => {
     }
 };
 
-// ၃။ Chat တစ်ခုချင်းစီရဲ့ Messages များကို Fetch လုပ်ခြင်း (အသစ်ထည့်ထားသည်)
+// ၃။ Chat တစ်ခုချင်းစီရဲ့ Messages များကို Fetch လုပ်ခြင်း
 exports.getChatMessages = async (req, res) => {
     try {
         const { chatId } = req.params;
