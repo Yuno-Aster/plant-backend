@@ -12,6 +12,14 @@ const diagnosePlantDisease = async (req, res) => {
       });
     }
 
+    // 📌 ပုံဆိုဒ် ကြီးလွန်းပါက (ဥပမာ - 5MB ထက်ကျော်လျှင်) တားမြစ်ရန်
+    if (req.file.size > 5 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        message: "ပုံဆိုဒ် ကြီးလွန်းပါသည်။ ကျေးဇူးပြု၍ 5MB အောက် ပုံကိုသာ တင်ပေးပါ။"
+      });
+    }
+
     // 📌 MimeType က application/octet-stream ဖြစ်နေပါက image/jpeg သို့ ပြောင်းပေးရန်
     let mimeType = req.file.mimetype;
     if (!mimeType || mimeType === 'application/octet-stream') {
@@ -23,7 +31,10 @@ const diagnosePlantDisease = async (req, res) => {
 
     const base64Image = req.file.buffer.toString("base64");
 
+    // 📌 မြန်မာဘာသာဖြင့်သာ တိကျစွာဖြေဆိုရန် တင်းကြပ်သော ညွှန်ကြားချက်
     const promptText = `
+    [အရေးကြီးသော စည်းမျဉ်း - အဖြေအားလုံးကို မြန်မာဘာသာစကားဖြင့်သာ တိကျသေချာစွာ ဖြေကြားပေးပါ။ အင်္ဂလိပ်စာ သို့မဟုတ် အခြားဘာသာစကား လုံးဝမသုံးရပါ။]
+
     သင်သည် စိုက်ပျိုးရေးနှင့် အပင်ရောဂါ ကျွမ်းကျင်ပညာရှင်တစ်ဦး ဖြစ်ပါသည်။ ဤပေးထားသော အပင်/စပါးပင်ပုံကို သေချာစွာ စစ်ဆေးပေးပါ။
     
     အောက်ပါအချက်များကို မြန်မာဘာသာဖြင့် တိကျရှင်းလင်းစွာ ဖြေကြားပေးပါ:
@@ -37,17 +48,20 @@ const diagnosePlantDisease = async (req, res) => {
       { 
         "type": "image_url", 
         "image_url": { 
-          // 📌 ပြင်ဆင်ထားသော mimeType ကို အသုံးပြုခြင်း
           "url": `data:${mimeType};base64,${base64Image}` 
         } 
       }
     ];
 
-    console.log("🤖 OpenRouter (Gemini) ဆီသို့ ပုံနှင့် မက်ဆေ့ချ် ပို့နေပါပြီ...");
+    console.log("🤖 OpenRouter သို့ ပုံနှင့် မက်ဆေ့ချ် ပို့နေပါပြီ...");
 
     const response = await axios.post(process.env.OPENROUTER_URL, {
-      "model": "google/gemini-2.5-flash-image",
+      "model": "openrouter/free", 
       "messages": [
+        {
+          "role": "system",
+          "content": "You are an expert agricultural assistant. You MUST ALWAYS answer in Burmese language only. Do not use English."
+        },
         { 
           "role": "user", 
           "content": contentParts 
