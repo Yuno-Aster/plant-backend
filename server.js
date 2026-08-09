@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const path = require('path'); // 📌 ပုံဖိုင်များအတွက် path လိုအပ်ပါသည်
+const path = require('path');
 
 require('./config/firebaseAdmin');
 
@@ -27,13 +27,20 @@ const authRoutes = require('./routes/auth');
 const noteRoutes = require('./routes/notes');
 const chatRoutes = require('./routes/chatRoutes');
 const riceRoutes = require('./routes/riceRoutes');
-const historyVoucherRoutes = require('./routes/historyVoucherRoutes'); // 👈 ဘောင်ချာနှင့်ပုံသိမ်းမည့် Route အသစ်
+const historyVoucherRoutes = require('./routes/historyVoucherRoutes'); 
+const diseaseRoutes = require('./routes/diseaseRoutes'); 
+const riceSuggestionRoutes = require('./routes/riceSuggestions');
 
 app.use('/auth', authRoutes);
 app.use('/notes', noteRoutes);
 app.use('/chat', chatRoutes);
 app.use('/api/rices', riceRoutes);
-app.use('/api/history-vouchers', historyVoucherRoutes); // 👈 History Voucher Route အသစ်ချိတ်ဆက်ခြင်း
+
+// 🛠 ပြင်ဆင်ပြီးပါပြီ - Flutter ဘက်က /api/history-vouchers နှင့် တိုက်ရိုက်ကိုက်ညီစေရန်
+app.use('/api/history-vouchers', historyVoucherRoutes); 
+
+app.use('/api/disease', diseaseRoutes); 
+app.use('/api', riceSuggestionRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {

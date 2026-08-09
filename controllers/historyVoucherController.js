@@ -2,16 +2,27 @@ const fs = require('fs');
 const path = require('path');
 const HistoryVoucher = require('../models/historyVoucherModel');
 
-// 📌 ၁။ ဘောင်ချာနှင့် ပုံကို သိမ်းဆည်းရန်
+// 📌 ၁။ ဘောင်ချာနှင့် ပုံကို သိမ်းဆည်းရန် (Multer Memory Storage ဖြင့်)
 exports.saveHistoryVoucher = async (req, res) => {
   try {
-    const { userId, baskets, pricePerBasket, totalRevenue, expenses, totalExpenses, netProfit, date, imageBase64 } = req.body;
+    const userId = req.user.uid; // Middleware (`verifyToken`) မှ ရယူထားသော User ID
+
+    const { 
+      itemName,      // ဥပမာ - 'စပါး'
+      quantity,      // စပါးတင်းရေ
+      pricePerUnit,  // တစ်တင်းပေါက်ဈေး
+      extraIncomes,  // 📌 ဘေးထွက်ပစ္စည်းများ (FormData မှ string အဖြစ်လာနိုင်သည်)
+      totalRevenue, 
+      expenses,      // (FormData မှ string အဖြစ်လာနိုင်သည်)
+      totalExpenses, 
+      netProfit, 
+      date 
+    } = req.body;
 
     let imageUrl = '';
 
-    // ပုံပါလာပါက Server ပေါ်သို့ ပုံဖိုင်အဖြစ် သိမ်းမည်
-    if (imageBase64) {
-      const base64Data = imageBase64.replace(/^data:image\/png;base64,/, "");
+    // 📌 Multer မှတစ်ဆင့် ပုံပါလာပါက Server ပေါ်သို့ ဖိုင်အဖြစ် သိမ်းမည်
+    if (req.file) {
       const filename = `history_voucher_${userId}_${Date.now()}.png`;
       const uploadDir = path.join(__dirname, '../public/uploads');
 
@@ -20,18 +31,39 @@ exports.saveHistoryVoucher = async (req, res) => {
       }
 
       const filePath = path.join(uploadDir, filename);
-      fs.writeFileSync(filePath, base64Data, 'base64');
+      fs.writeFileSync(filePath, req.file.buffer); // req.file.buffer ကို အသုံးပြု၍ ဖိုင်ရေးမည်
 
       imageUrl = `/uploads/${filename}`;
+    }
+
+    // 📌 FormData မှလာသော Array ဒေတာများကို JSON အဖြစ်သို့ ဘာသာပြန်ခြင်း
+    let parsedExtraIncomes = [];
+    if (extraIncomes) {
+      try {
+        parsedExtraIncomes = typeof extraIncomes === 'string' ? JSON.parse(extraIncomes) : extraIncomes;
+      } catch (e) {
+        parsedExtraIncomes = [];
+      }
+    }
+
+    let parsedExpenses = [];
+    if (expenses) {
+      try {
+        parsedExpenses = typeof expenses === 'string' ? JSON.parse(expenses) : expenses;
+      } catch (e) {
+        parsedExpenses = [];
+      }
     }
 
     // Database ထဲသို့ အချက်အလက်များ သိမ်းဆည်းခြင်း
     const newVoucher = new HistoryVoucher({
       userId,
-      baskets,
-      pricePerBasket,
+      itemName: itemName || 'စပါး',
+      quantity,
+      pricePerUnit,
+      extraIncomes: parsedExtraIncomes, 
       totalRevenue,
-      expenses,
+      expenses: parsedExpenses,
       totalExpenses,
       netProfit,
       date,
@@ -56,7 +88,7 @@ exports.saveHistoryVoucher = async (req, res) => {
 exports.getHistoryVouchers = async (req, res) => {
   try {
     const userId = req.user.uid;
-    const vouchers = await HistoryVoucher.find({ userId }).sort({ date: -1 }); // အသစ်ဆုံးကို အပေါ်ဆုံးတင်ရန်
+    const vouchers = await HistoryVoucher.find({ userId }).sort({ date: -1 });
 
     res.status(200).json({
       success: true,
@@ -64,7 +96,7 @@ exports.getHistoryVouchers = async (req, res) => {
     });
   } catch (error) {
     console.error("Get History Error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: error.message });
   }
 };
 
@@ -79,7 +111,6 @@ exports.deleteHistoryVoucher = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Voucher not found' });
     }
 
-    // Server ပေါ်တွင် သိမ်းထားသော ပုံဖိုင်ရှိပါကပါ တစ်ပါတည်း ဖျက်မည်
     if (voucher.imageUrl) {
       const filePath = path.join(__dirname, '../public', voucher.imageUrl);
       if (fs.existsSync(filePath)) {

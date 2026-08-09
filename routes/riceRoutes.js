@@ -1,16 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const riceController = require('../controllers/riceController');
-
-// 👇 ဤနေရာတွင် verifyFirebaseToken ကို ပြန်လည် ထည့်သွင်းပေးပါ (Uncomment လုပ်ပါ)
 const verifyFirebaseToken = require('../middleware/authMiddleware');
 
-// ဈေးနှုန်းကြည့်ရန် (Login လုံးဝမလိုပါ)
+// ဈေးနှုန်းများ အားလုံးကို ရယူရန် (Login / Token မလိုအပ်ပါ)
 router.get('/', riceController.getRices);
 
-// အသစ်ထည့်ရန်၊ ပြင်ရန်၊ ဖျက်ရန် (Login/Token လိုအပ်သည်)
+// ဈေးနှုန်းအသစ် ထည့်သွင်းရန် (Login / Token လိုအပ်သည်)
 router.post('/', verifyFirebaseToken, riceController.createRice); 
+
+// ရှိပြီးသား ဈေးနှုန်းကို ပြင်ဆင်ရန် (Login / Token လိုအပ်သည်)
 router.put('/:id', verifyFirebaseToken, riceController.updateRicePrice);
+
+// ဈေးနှုန်း အချက်အလက် ဖျက်ရန် (Login / Token လိုအပ်သည်)
 router.delete('/:id', verifyFirebaseToken, riceController.deleteRice);
 
 module.exports = router;

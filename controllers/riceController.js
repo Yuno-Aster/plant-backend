@@ -1,119 +1,140 @@
 const Rice = require('../models/riceModel');
-const admin = require('../config/firebaseAdmin');
+const admin = require('firebase-admin'); // Firebase Admin SDK ကို ချိတ်ဆက်ရန်
 
-// 📌 စပါးဈေးနှုန်းအားလုံး ဆွဲထုတ်ရန် (သို့မဟုတ် Region အလိုက် Filter လုပ်ရန်)
-exports.getRices = async (req, res) => {
+// ၁။ စပါးနှင့် ဘေးထွက်ပစ္စည်း ဈေးနှုန်းများအားလုံးကို ရယူရန် (GET)
+const getRices = async (req, res) => {
   try {
-    const { region } = req.query; // ဥပမာ - /api/rices?region=Ayeyarwady
-    let query = {};
-    if (region && region.trim() !== '') {
-      query.region = region.trim();
-    }
-    const rices = await Rice.find(query).sort({ createdAt: -1 });
+    const rices = await Rice.find().sort({ createdAt: -1 });
     res.status(200).json(rices);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: "ဒေတာရယူရာတွင် အမှားအယွင်းရှိသည်", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 စပါးအမျိုးအစား အသစ်ထည့်သွင်းရန် (POST)
-exports.createRice = async (req, res) => {
+// ၂။ အချက်အလက်အသစ် ထည့်သွင်းရန် (POST + Notification)
+const createRice = async (req, res) => {
   try {
-    const { name, market_value, region } = req.body;
-    
-    if (!name || !market_value || !region) {
-      return res.status(400).json({ message: 'စပါးအမျိုးအစား၊ ဈေးနှုန်းနှင့် ဒေသ အပြည့်အစုံ ထည့်ပါ။' });
-    }
+    const { name, market_value, region, category } = req.body;
 
-    const newRice = new Rice({ 
-      name: name.trim(), 
-      market_value: market_value.trim(), 
-      region: region.trim() 
+    const newRice = new Rice({
+      name,
+      market_value,
+      region,
+      category: category || 'rice'
     });
-    
-    await newRice.save();
 
-    // 🔔 Notification တွင် ဒေသအမည်ပါ ထည့်သွင်းခြင်း
-    const message = {
-      notification: {
-        title: `🌾 စပါးဈေးနှုန်း အသစ် (${region.trim()})`,
-        body: `${name.trim()} - ${market_value.trim()} ကျပ်`,
-      },
-      topic: 'rice_updates',
-    };
+    const savedRice = await newRice.save();
 
+    // 🔔 Notification ပို့ရန် Code
     try {
+      const message = {
+        notification: {
+          title: `🌾 စပါးဈေးနှုန်း အသစ် (${savedRice.region})`,
+          body: `${savedRice.name} - ${savedRice.market_value} ကျပ်`,
+        },
+        topic: savedRice.region, // သက်ဆိုင်ရာ ဒေသအလိုက် Topic ဖြင့် ပို့မည် (သို့မဟုတ် 'all' သုံးနိုင်သည်)
+      };
       await admin.messaging().send(message);
-    } catch (fcmError) {
-      console.error('Notification Error:', fcmError);
+    } catch (notifError) {
+      console.log('Notification Error (Create):', notifError.message);
     }
 
     res.status(201).json({
-      message: 'စပါးအမျိုးအစား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ',
-      data: newRice
+      message: "စပါးအမျိုးအစား အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ",
+      data: savedRice
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: "အမှားအယွင်း ရှိနေပါသည်", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 စပါးဈေးနှုန်း ပြင်ဆင်ရန် (PUT)
-exports.updateRicePrice = async (req, res) => {
+// ၃။ ရှိပြီးသား ဈေးနှုန်း/အချက်အလက်ကို ပြင်ဆင်ရန် (PUT + Notification)
+const updateRicePrice = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, market_value, region } = req.body;
-
-    // 📌 ပေးပို့လာသော တန်ဖိုးများကို စစ်ဆေးပြီးမှ update လုပ်ရန် (Dynamic Update)
-    const updateData = {};
-    if (name) updateData.name = name.trim();
-    if (market_value) updateData.market_value = market_value.trim();
-    if (region) updateData.region = region.trim();
+    const { name, market_value, region, category } = req.body;
 
     const updatedRice = await Rice.findByIdAndUpdate(
       id,
-      updateData,
+      { name, market_value, region, category },
       { new: true, runValidators: true }
     );
 
     if (!updatedRice) {
-      return res.status(404).json({ message: 'ရှာမတွေ့ပါ' });
+      return res.status(404).json({ message: "ပြင်ဆင်ရန် အချက်အလက် ရှာမတွေ့ပါ" });
     }
 
-    const message = {
-      notification: {
-        title: `🔄 စပါးဈေးနှုန်း ပြင်ဆင်ချက် (${updatedRice.region})`,
-        body: `${updatedRice.name} - ${updatedRice.market_value} ကျပ်`,
-      },
-      topic: 'rice_updates',
-    };
-
+    // 🔔 Notification ပို့ရန် Code (Update)
     try {
+      const message = {
+        notification: {
+          title: `🔄 ဈေးနှုန်း ပြင်ဆင်မှု (${updatedRice.region})`,
+          body: `${updatedRice.name} ဈေးနှုန်းကို ${updatedRice.market_value} ကျပ်သို့ ပြင်ဆင်လိုက်ပါပြီ`,
+        },
+        topic: updatedRice.region,
+      };
       await admin.messaging().send(message);
-    } catch (fcmError) {
-      console.error('Notification Error:', fcmError);
+    } catch (notifError) {
+      console.log('Notification Error (Update):', notifError.message);
     }
 
     res.status(200).json({
-      message: 'ဈေးနှုန်း အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ',
+      message: "ဈေးနှုန်း ပြင်ဆင်ပြီးပါပြီ",
       data: updatedRice
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: "ပြင်ဆင်၍ မရပါ", 
+      error: error.message 
+    });
   }
 };
 
-// 📌 စပါးအမျိုးအစား ဖျက်ရန် (DELETE)
-exports.deleteRice = async (req, res) => {
+// ၄။ အချက်အလက် ဖျက်ရန် (DELETE + Notification)
+const deleteRice = async (req, res) => {
   try {
     const { id } = req.params;
     const deletedRice = await Rice.findByIdAndDelete(id);
 
     if (!deletedRice) {
-      return res.status(404).json({ message: 'ရှာမတွေ့ပါ' });
+      return res.status(404).json({ message: "ဖျက်ရန် အချက်အလက် ရှာမတွေ့ပါ" });
     }
 
-    res.status(200).json({ message: 'စပါးအမျိုးအစား အောင်မြင်စွာ ဖျက်လိုက်ပါပြီ' });
+    // 🔔 Notification ပို့ရန် Code (Delete)
+    try {
+      const message = {
+        notification: {
+          title: `🗑️ စာရင်းမှ ဖျက်သိမ်းမှု (${deletedRice.region})`,
+          body: `${deletedRice.name} ကို စာရင်းမှ ဖျက်လိုက်ပါပြီ`,
+        },
+        topic: deletedRice.region,
+      };
+      await admin.messaging().send(message);
+    } catch (notifError) {
+      console.log('Notification Error (Delete):', notifError.message);
+    }
+
+    res.status(200).json({
+      message: "အောင်မြင်စွာ ဖျက်လိုက်ပါပြီ",
+      data: deletedRice
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: "ဖျက်၍ မရပါ", 
+      error: error.message 
+    });
   }
+};
+
+module.exports = {
+  getRices,
+  createRice,
+  updateRicePrice,
+  deleteRice
 };

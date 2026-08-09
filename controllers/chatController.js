@@ -2,13 +2,36 @@ const axios = require('axios');
 const fs = require('fs');
 const ChatSession = require('../models/ChatSession');
 
-// ၁။ Chat လုပ်ခြင်း (History ပါ သိမ်းမည် - စပါးနှင့် စိုက်ပျိုးရေးဆိုင်ရာ သီးသန့်ကန့်သတ်ထားသည်)
+// ၁။ Chat လုပ်ခြင်း (History ပါ သိမ်းမည် - စပါး၊ စိုက်ပျိုးရေးနှင့် Argolens အကြောင်းများ)
 exports.handleChat = async (req, res) => {
     try {
         const { message, chatId, userId } = req.body;
         const image = req.file;
 
-        let contentParts = [{ "type": "text", "text": message || "ဒီအပင်က ဘာအပင်လဲ ပြောပြပေးပါ။" }];
+        const userMsgText = message || "ဒီအပင်က ဘာအပင်လဲ ပြောပြပေးပါ။";
+        const lowerMessage = userMsgText.toLowerCase();
+
+        // 📌 1. "Argolens ဆိုတာဘာလဲ" ဟု မေးလာပါက အလိုအလျောက် အကောင်းဆုံး ဖြေကြားပေးရန်
+        if (lowerMessage.includes('argolens') || lowerMessage.includes('အာဂိုလင်း') || lowerMessage.includes('argolens ဆိုတာဘာလဲ')) {
+            const argolensReply = "🌾 **Argolens** ဆိုသည်မှာ မိတ္ထီလာကွန်ပျူတာတက္ကသိုလ် (Meiktila Computer University) တွင် တက်ရောက်ပညာသင်ကြားလျက်ရှိသော ကျောင်းသူကျောင်းသားများက စုပေါင်းဖန်တီးတီထွင်ထားသော ခေတ်မီဆန်းသစ်သည့် စပါးစိုက်ပျိုးရေးနှင့် နည်းပညာအခြေပြု အပလီကေးရှင်းတစ်ခု ဖြစ်ပါသည်။ 🌿";
+
+            let session;
+            if (chatId) {
+                session = await ChatSession.findByIdAndUpdate(chatId, {
+                    $push: { messages: [{ role: 'user', content: userMsgText }, { role: 'assistant', content: argolensReply }] },
+                    updatedAt: Date.now()
+                }, { new: true });
+            } else {
+                session = await ChatSession.create({
+                    userId: userId,
+                    title: userMsgText.substring(0, 20),
+                    messages: [{ role: 'user', content: userMsgText }, { role: 'assistant', content: argolensReply }]
+                });
+            }
+            return res.json({ response: argolensReply, chatId: session._id });
+        }
+
+        let contentParts = [{ "type": "text", "text": userMsgText }];
 
         if (image) {
             const imageBuffer = fs.readFileSync(image.path);
@@ -16,10 +39,10 @@ exports.handleChat = async (req, res) => {
             contentParts.push({ "type": "image_url", "image_url": { "url": `data:image/jpeg;base64,${base64Image}` } });
         }
 
-        // 📌 စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ သီးသန့်ဖြစ်စေရန် သတ်မှတ်ချက်
-        const systemPrompt = `You are an expert assistant strictly dedicated to rice plants, paddy farming, and agricultural practices in Myanmar. 
-        - You must ONLY answer questions related to rice, paddy cultivation, diseases, fertilizers, and agricultural tips.
-        - If the user asks about anything unrelated to rice or agriculture (e.g., coding, general knowledge, entertainment, politics), politely refuse in Burmese by saying: "ကျေးဇူးပြု၍ စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ မေးခွန်းများကိုသာ မေးမြန်းပေးပါ။"
+        // 📌 2. စပါးပင်၊ စိုက်ပျိုးရေးနှင့် Argolens အကြောင်း သီးသန့်ဖြစ်စေရန် သတ်မှတ်ချက်
+        const systemPrompt = `You are an expert assistant for "Argolens", a smart agricultural platform created by brilliant students attending Meiktila Computer University in Myanmar. 
+        - You must ONLY answer questions related to rice, paddy cultivation, diseases, fertilizers, agricultural tips, and information about Argolens.
+        - If the user asks about anything unrelated to rice or agriculture (e.g., general coding, general knowledge, entertainment, politics), politely refuse in Burmese by saying: "ကျေးဇူးပြု၍ စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ မေးခွန်းများကိုသာ မေးမြန်းပေးပါ။"
         - ALWAYS answer in Burmese language.`;
 
         const response = await axios.post(process.env.OPENROUTER_URL, {
@@ -38,14 +61,14 @@ exports.handleChat = async (req, res) => {
         let session;
         if (chatId) {
             session = await ChatSession.findByIdAndUpdate(chatId, {
-                $push: { messages: [{ role: 'user', content: message }, { role: 'assistant', content: aiResponse }] },
+                $push: { messages: [{ role: 'user', content: userMsgText }, { role: 'assistant', content: aiResponse }] },
                 updatedAt: Date.now()
             }, { new: true });
         } else {
             session = await ChatSession.create({
                 userId: userId,
-                title: message.substring(0, 20),
-                messages: [{ role: 'user', content: message }, { role: 'assistant', content: aiResponse }]
+                title: userMsgText.substring(0, 20),
+                messages: [{ role: 'user', content: userMsgText }, { role: 'assistant', content: aiResponse }]
             });
         }
 
@@ -85,7 +108,8 @@ exports.getChatMessages = async (req, res) => {
 // ၄။ Chat တစ်ခုကို ဖျက်ခြင်း
 exports.deleteChat = async (req, res) => {
     try {
-        await ChatSession.findByIdAndDelete(req.params.id);
+        const { id } = req.params;
+        await ChatSession.findByIdAndDelete(id);
         res.json({ message: "Chat deleted successfully" });
     } catch (error) {
         res.status(500).json({ error: error.message });
