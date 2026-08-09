@@ -2,7 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const ChatSession = require('../models/ChatSession');
 
-// ၁။ Chat လုပ်ခြင်း (History ပါ သိမ်းမည် - စပါး၊ စိုက်ပျိုးရေးနှင့် Argolens အကြောင်းများ)
+// ၁။ Chat လုပ်ခြင်း (Argolens အကြောင်း မေးသမျှကို ကြိုတင်သတ်မှတ်ထားသော အဖြေဖြင့် တိုက်ရိုက်ဖြေမည်)
 exports.handleChat = async (req, res) => {
     try {
         const { message, chatId, userId } = req.body;
@@ -11,9 +11,9 @@ exports.handleChat = async (req, res) => {
         const userMsgText = message || "ဒီအပင်က ဘာအပင်လဲ ပြောပြပေးပါ။";
         const lowerMessage = userMsgText.toLowerCase();
 
-        // 📌 1. "Argolens ဆိုတာဘာလဲ" ဟု မေးလာပါက အလိုအလျောက် အကောင်းဆုံး ဖြေကြားပေးရန်
-        if (lowerMessage.includes('argolens') || lowerMessage.includes('အာဂိုလင်း') || lowerMessage.includes('argolens ဆိုတာဘာလဲ')) {
-            const argolensReply = "🌾 **Argolens** ဆိုသည်မှာ မိတ္ထီလာကွန်ပျူတာတက္ကသိုလ် (Meiktila Computer University) တွင် တက်ရောက်ပညာသင်ကြားလျက်ရှိသော ကျောင်းသူကျောင်းသားများက စုပေါင်းဖန်တီးတီထွင်ထားသော ခေတ်မီဆန်းသစ်သည့် စပါးစိုက်ပျိုးရေးနှင့် နည်းပညာအခြေပြု အပလီကေးရှင်းတစ်ခု ဖြစ်ပါသည်။ 🌿";
+        // 📌 Argolens သို့မဟုတ် အာဂိုလင်း နှင့် ပတ်သက်ပြီး ဘာပဲမေးမေး ဤအဖြေကိုသာ အမြဲတမ်း ပြန်မည်
+        if (lowerMessage.includes('argolens') || lowerMessage.includes('အာဂိုလင်း')) {
+            const argolensReply = "🌾 **Argolens** ဆိုသည်မှာ မိတ္ထီလာကွန်ပျူတာတက္ကသိုလ် (Meiktila Computer University) တွင် တက်ရောက်ပညာသင်ကြားလျက်ရှိသော ထူးချွန်ထက်မြက်သည့် ကျောင်းသူကျောင်းသားများက စုပေါင်းဖန်တီးတီထွင်ထားသော ခေတ်မီဆန်းသစ်သည့် စပါးစိုက်ပျိုးရေးနှင့် နည်းပညာအခြေပြု အပလီကေးရှင်းတစ်ခု ဖြစ်ပါသည်။ 🌿";
 
             let session;
             if (chatId) {
@@ -39,7 +39,7 @@ exports.handleChat = async (req, res) => {
             contentParts.push({ "type": "image_url", "image_url": { "url": `data:image/jpeg;base64,${base64Image}` } });
         }
 
-        // 📌 2. စပါးပင်၊ စိုက်ပျိုးရေးနှင့် Argolens အကြောင်း သီးသန့်ဖြစ်စေရန် သတ်မှတ်ချက်
+        // 📌 ကျန်ရှိသော စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ မေးခွန်းများအတွက် သတ်မှတ်ချက်
         const systemPrompt = `You are an expert assistant for "Argolens", a smart agricultural platform created by brilliant students attending Meiktila Computer University in Myanmar. 
         - You must ONLY answer questions related to rice, paddy cultivation, diseases, fertilizers, agricultural tips, and information about Argolens.
         - If the user asks about anything unrelated to rice or agriculture (e.g., general coding, general knowledge, entertainment, politics), politely refuse in Burmese by saying: "ကျေးဇူးပြု၍ စပါးပင်နှင့် စိုက်ပျိုးရေးဆိုင်ရာ မေးခွန်းများကိုသာ မေးမြန်းပေးပါ။"
