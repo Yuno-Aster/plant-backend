@@ -3,8 +3,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const cron = require('node-cron');
 
 require('./config/firebaseAdmin');
+
+// Scraper service သို့မဟုတ် utils မှ function ကို တိုက်ရိုက်ချိတ်ဆက်ခြင်း
+// (သင့်ဘက်က ဖိုင်တည်နေရာအပေါ်မူတည်၍ utils/scraper သို့မဟုတ် services/riceScraper ကို သုံးနိုင်သည်)
+const { scrapeRicePrices } = require('./utils/scraper'); 
 
 const app = express();
 
@@ -28,7 +33,6 @@ const noteRoutes = require('./routes/notes');
 const chatRoutes = require('./routes/chatRoutes');
 const riceRoutes = require('./routes/riceRoutes');
 const historyVoucherRoutes = require('./routes/historyVoucherRoutes'); 
-const diseaseRoutes = require('./routes/diseaseRoutes'); 
 const riceSuggestionRoutes = require('./routes/riceSuggestions');
 
 app.use('/auth', authRoutes);
@@ -36,11 +40,24 @@ app.use('/notes', noteRoutes);
 app.use('/chat', chatRoutes);
 app.use('/api/rices', riceRoutes);
 
-// 🛠 ပြင်ဆင်ပြီးပါပြီ - Flutter ဘက်က /api/history-vouchers နှင့် တိုက်ရိုက်ကိုက်ညီစေရန်
+// 🛠 Flutter ဘက်က /api/history-vouchers နှင့် တိုက်ရိုက်ကိုက်ညီစေရန်
 app.use('/api/history-vouchers', historyVoucherRoutes); 
 
-app.use('/api/disease', diseaseRoutes); 
 app.use('/api', riceSuggestionRoutes);
+
+// ⏰ နေ့စဉ် စပါးဈေးနှုန်း အလိုအလျောက် ဆွဲယူရန် (Cron Job)
+// Server စတင်ချိန်တွင် တစ်ခါ စပါးဈေး ဝင်ဆွဲခိုင်းမည်
+if (typeof scrapeRicePrices === 'function') {
+    scrapeRicePrices();
+}
+
+// နေ့စဉ် မနက် ၈ နာရီတိုင်းတွင် စပါးဈေး အလိုအလျောက် သွားဆွဲရန်
+cron.schedule('0 8 * * *', () => {
+    console.log("⏰ Running daily scheduled rice price scraper...");
+    if (typeof scrapeRicePrices === 'function') {
+        scrapeRicePrices();
+    }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
