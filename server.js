@@ -43,6 +43,10 @@ app.use('/api/rices', riceRoutes);
 // 🛠 Flutter ဘက်က /api/history-vouchers နှင့် တိုက်ရိုက်ကိုက်ညီစေရန်
 app.use('/api/history-vouchers', historyVoucherRoutes); 
 
+app.get('/', (req, res) => {
+  res.send('Plant Backend Server is running successfully!');
+});
+
 app.use('/api', riceSuggestionRoutes);
 
 // ⏰ နေ့စဉ် စပါးဈေးနှုန်း အလိုအလျောက် ဆွဲယူရန် (Cron Job)
