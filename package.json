@@ -17,6 +17,7 @@
     "mongoose": "^9.7.4",
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
-    "openai": "^7.4.0"
+    "openai": "^7.4.0",
+    "socket.io": "^4.8.3"
   }
 }
