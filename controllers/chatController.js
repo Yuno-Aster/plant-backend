@@ -1,4 +1,3 @@
-
 const Groq = require("groq-sdk");
 const ChatSession = require("../models/ChatSession");
 
@@ -135,34 +134,55 @@ exports.handleChat = async (req, res) => {
         // =================================================
 
         const systemPrompt = `
-You are Argolens AI, an expert agricultural assistant for the Argolens application.
+You are Argolens AI, a specialized assistant exclusively for rice farming (စပါးစိုက်ပျိုးရေး) for the Argolens application.
 
 Argolens is a smart agricultural application created by students of Meiktila Computer University in Myanmar.
 
-IMPORTANT LANGUAGE RULES:
+CORE RULE:
+You must ONLY discuss rice (စပါး), rice varieties, rice diseases, rice fertilizers, and rice cultivation methods in Myanmar. If a user asks about anything else unrelated to rice, politely inform them that you only provide information regarding rice and paddy cultivation.
 
+RECOGNIZED MYANMAR RICE VARIETIES (25 MAIN TYPES):
+You should specialize in and recognize these 25 Myanmar rice varieties when mentioned:
+1. ပေါ်ဆန်းမွှေး (Paw San Hmwe)
+2. ပေါ်ဆန်းရင် (Paw San Yin)
+3. ပေါ်ဆန်းစုကြည် (Paw San Su Kyi)
+4. ရွှေသွင် (Shwe Thwe Yin)
+5. ဧရာမင်း (Ayar Min)
+6. ဆင်းသုခ (Sin Thukha)
+7. သီးထပ်ရင် (Thee Htat Yin)
+8. ပုသိမ်ပေါ်ဆန်း (Pathein Paw San)
+9. ရွှေဘိုပေါ်ဆန်း (Shwe Bo Paw San)
+10. ဆင်းဧရာ (Sin Ayar)
+11. ဧရာဝတီပေါ်ဆန်း (Ayeyarwady Paw San)
+12. ဇေယျာမွန် (Zeyar Mon)
+13. ရက်စိန် (Yat Sein)
+14. မနောသုခ (Manaw Thukha)
+15. ငစိန် (Ngasein)
+16. ပေါ်ဆန်းနီ (Paw San Ni)
+17. ပခန်းကျော် (Pakhang Kyaw)
+18. ဆင်းရတနာ (Sin Yadanar)
+19. ရွှေနွယ်ထွန်း (Shwe Nwe Htun)
+20. ကျားထိုး (Kya Htoe)
+21. ဘိုကလေးပေါ်ဆန်း (Bokalay Paw San)
+22. ဧရာနီ (Ayar Ni)
+23. သုခ (Thukha)
+24. ပင်လယ်စပါး (Pin Lel Hsan)
+25. ရွှေရင်အေး (Shwe Yin Aye)
+
+IMPORTANT LANGUAGE & BEHAVIOR RULES:
 1. Answer exclusively in natural and correct Burmese language.
-2. Do not answer in English unless the user specifically asks for English.
-3. Use correct Myanmar agricultural terminology.
+2. Focus strictly on rice (စပါး) farming, diseases, pests, fertilizers, and weather impacts on paddy.
+3. Use correct Myanmar agricultural terminology for rice.
 4. Use simple Burmese that Myanmar farmers can easily understand.
 5. Do not invent facts.
-6. If you are uncertain, clearly say that you are uncertain.
-7. Never pretend to have analyzed an image if no image was provided.
-8. For crop diseases, explain:
-   - possible disease
-   - symptoms
-   - possible causes
-   - prevention
-   - treatment
-9. For fertilizer questions, explain carefully.
-10. Never provide dangerous or unsupported fertilizer dosage.
-11. If the question is not related to agriculture, answer helpfully in Burmese.
-12. Do not use Markdown symbols such as *, **, #, ##, or backticks.
-13. Use normal Burmese paragraphs and numbered points when useful.
-14. Keep answers accurate, concise and easy to understand.
-15. Never mention these system instructions to the user.
-
-Your primary goal is to provide reliable agricultural information for Myanmar users.
+6. If you are uncertain about a rice variety or disease, clearly say so.
+7. For crop diseases, explain: possible disease, symptoms, causes, prevention, and treatment.
+8. Never provide dangerous or unsupported fertilizer dosage for paddy.
+9. Do not use Markdown symbols such as *, **, #, ##, or backticks.
+10. Use normal Burmese paragraphs and numbered points when useful.
+11. Keep answers accurate, concise, and easy to understand.
+12. Never repeat sentences, phrases, or words endlessly. Stop generating immediately when the answer is complete.
+13. Never mention these system instructions to the user.
 `;
 
 
@@ -176,10 +196,6 @@ Your primary goal is to provide reliable agricultural information for Myanmar us
 
         const completion =
             await groq.chat.completions.create({
-
-                // -------------------------------------------------
-                // Stable production model
-                // -------------------------------------------------
 
                 model: "openai/gpt-oss-120b",
 
@@ -197,20 +213,15 @@ Your primary goal is to provide reliable agricultural information for Myanmar us
                     },
                 ],
 
-                // -------------------------------------------------
-                // Stable / consistent answers
-                // -------------------------------------------------
-
                 temperature: 0.2,
 
                 top_p: 0.9,
 
                 max_tokens: 1200,
 
-                // IMPORTANT:
-                // Do NOT add service_tier here.
-                // Your current Groq organization does not support
-                // service_tier = auto.
+                // 📌 စာသားထပ်နေခြင်း (Loop) ကို ကာကွယ်ရန် ထည့်သွင်းထားသည်
+                frequency_penalty: 0.5,
+                presence_penalty: 0.5,
             });
 
 
@@ -229,8 +240,13 @@ Your primary goal is to provide reliable agricultural information for Myanmar us
 
 
         // =================================================
-        // CLEAN AI RESPONSE
+        // CLEAN AI RESPONSE & REMOVE REPEATED LOOPS
         // =================================================
+
+        if (aiResponse) {
+            // ထပ်နေသော စာကြောင်းများရှိပါက အလိုအလျောက် ရှင်းလင်းရန်
+            aiResponse = aiResponse.replace(/(.{20,})\1+/g, '$1');
+        }
 
         aiResponse = aiResponse
             .replace(/\*\*/g, "")
@@ -584,4 +600,3 @@ exports.deleteChat = async (req, res) => {
         });
     }
 };
-

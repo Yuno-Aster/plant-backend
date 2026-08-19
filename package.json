@@ -19,6 +19,10 @@
     "node-cron": "^4.6.0",
     "openai": "^7.4.0",
     "pdf-parse": "^2.4.5",
-    "socket.io": "^4.8.3"
+    "pdf2json": "^4.0.3",
+    "pdf2pic": "^3.2.0",
+    "pdfjs-dist": "^6.2.108",
+    "socket.io": "^4.8.3",
+    "tesseract.js": "^7.0.0"
   }
 }
